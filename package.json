@@ -1,5 +1,5 @@
 {
-      "name": "Website Development for Attendance System",
+      "name": "smart-attendance-frontend",
       "version": "0.1.0",
       "private": true,
       "dependencies": {
