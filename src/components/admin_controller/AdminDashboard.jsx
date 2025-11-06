@@ -85,10 +85,10 @@ export function AdminDashboard({ user, onLogout }) {
               <h1 className="text-3xl font-bold text-green-600">AttendEase</h1>
               <p className="text-muted-foreground mt-1">Admin Dashboard</p>
             </div>
-            <Button variant="outline" onClick={onLogout} className="flex items-center gap-2">
+            {/* <Button variant="outline" onClick={onLogout} className="flex items-center gap-2">
               <LogOut className="w-4 h-4" />
               Logout
-            </Button>
+            </Button> */}
           </div>
         </div>
       </header>
