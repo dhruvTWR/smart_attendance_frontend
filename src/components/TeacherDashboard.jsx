@@ -46,31 +46,24 @@ export function TeacherDashboard() {
   const [selectedSubject, setSelectedSubject] = useState(null);
   const [loadingSubjects, setLoadingSubjects] = useState(false);
 
-  // Photo upload state
-  const [selectedFile, setSelectedFile] = useState(null);
-  const [imagePreview, setImagePreview] = useState(null);
-
-  // NEW: Multiple file upload state
+  // Multiple file upload state
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [imagePreviews, setImagePreviews] = useState([]);
   const [enableMultipleUpload, setEnableMultipleUpload] = useState(false);
 
-  // NEW: Quality check state
+  // Quality check state
   const [qualityChecks, setQualityChecks] = useState([]);
   const [isCheckingQuality, setIsCheckingQuality] = useState(false);
   const [showQualityWarning, setShowQualityWarning] = useState(false);
   const [poorQualityFiles, setPoorQualityFiles] = useState([]);
   const [isUploading, setIsUploading] = useState(false);
 
-  // Photo upload state
-  // const [selectedFile, setSelectedFile] = useState(null);
-  // const [imagePreview, setImagePreview] = useState(null);
-  // const [isUploading, setIsUploading] = useState(false);
+  // Upload state
   const [uploadProgress, setUploadProgress] = useState(0);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
 
-  // Results state for showing stats and list
+  // Results state
   const [attendanceResults, setAttendanceResults] = useState(null);
   const [showResults, setShowResults] = useState(false);
 
@@ -89,7 +82,6 @@ export function TeacherDashboard() {
   const [selectedDate, setSelectedDate] = useState(
     new Date().toISOString().split("T")[0]
   );
-  const [dateAttendance, setDateAttendance] = useState(null);
   const [loadingDateAttendance, setLoadingDateAttendance] = useState(false);
 
   const fileInputRef = useRef(null);
@@ -113,7 +105,7 @@ export function TeacherDashboard() {
     try {
       const data = await dropdownService.getBranches();
       if (data.success) {
-        setBranches(data.branches);
+        setBranches(data.branches || []);
       }
     } catch (err) {
       console.error("Failed to fetch branches:", err);
@@ -136,9 +128,7 @@ export function TeacherDashboard() {
       if (data.success) {
         setSubjects(data.subjects || []);
         if (!data.subjects || data.subjects.length === 0) {
-          setError(
-            "No subjects found for this class. Please add subjects in the database."
-          );
+          setError("No subjects found for this class. Please add subjects in the database.");
         }
       } else {
         setError(data.message || "Failed to load subjects");
@@ -153,28 +143,6 @@ export function TeacherDashboard() {
     }
   };
 
-  // const handleFileSelect = (event) => {
-  //   const file = event.target.files?.[0];
-  //   if (file && file.type.startsWith('image/')) {
-  //     if (file.size > 10 * 1024 * 1024) {
-  //       setError('File size must be less than 10MB');
-  //       return;
-  //     }
-
-  //     setSelectedFile(file);
-  //     setError(null);
-  //     setSuccess(null);
-
-  //     const reader = new FileReader();
-  //     reader.onloadend = () => {
-  //       setImagePreview(reader.result);
-  //     };
-  //     reader.readAsDataURL(file);
-  //   } else {
-  //     setError('Please select a valid image file');
-  //   }
-  // };
-
   const handleFileSelect = (event) => {
     const files = event.target.files;
 
@@ -188,6 +156,7 @@ export function TeacherDashboard() {
       const fileArray = Array.from(files);
       const validFiles = [];
       const previews = [];
+      let hasError = false;
 
       fileArray.forEach((file) => {
         if (file.type.startsWith("image/")) {
@@ -205,21 +174,27 @@ export function TeacherDashboard() {
                 setImagePreviews(previews);
               }
             };
+            reader.onerror = () => {
+              console.error(`Failed to read file: ${file.name}`);
+            };
             reader.readAsDataURL(file);
           } else {
             setError(`File ${file.name} is too large (max 10MB)`);
+            hasError = true;
           }
         }
       });
 
-      if (validFiles.length > 0) {
+      if (validFiles.length > 0 && !hasError) {
         setSelectedFiles(validFiles);
         setError(null);
         setSuccess(null);
         setQualityChecks([]);
+        setPoorQualityFiles([]);
+        setShowQualityWarning(false);
       }
     } else {
-      // Handle single file (existing behavior)
+      // Handle single file
       const file = files[0];
 
       if (file && file.type.startsWith("image/")) {
@@ -229,16 +204,19 @@ export function TeacherDashboard() {
         }
 
         setEnableMultipleUpload(false);
-        setSelectedFile(file);
         setSelectedFiles([file]);
         setError(null);
         setSuccess(null);
         setQualityChecks([]);
+        setPoorQualityFiles([]);
+        setShowQualityWarning(false);
 
         const reader = new FileReader();
         reader.onloadend = () => {
-          setImagePreview(reader.result);
           setImagePreviews([{ file: file.name, url: reader.result }]);
+        };
+        reader.onerror = () => {
+          setError("Failed to read file");
         };
         reader.readAsDataURL(file);
       } else {
@@ -298,16 +276,6 @@ export function TeacherDashboard() {
     }
   };
 
-  // const handleRemoveFile = () => {
-  //   setSelectedFile(null);
-  //   setImagePreview(null);
-  //   setError(null);
-  //   setSuccess(null);
-  //   if (fileInputRef.current) {
-  //     fileInputRef.current.value = '';
-  //   }
-  // };
-
   const handleRemoveFile = (indexToRemove = null) => {
     if (indexToRemove !== null && enableMultipleUpload) {
       // Remove specific file from multiple selection
@@ -320,9 +288,7 @@ export function TeacherDashboard() {
       );
     } else {
       // Clear all files
-      setSelectedFile(null);
       setSelectedFiles([]);
-      setImagePreview(null);
       setImagePreviews([]);
       setQualityChecks([]);
       setPoorQualityFiles([]);
@@ -337,66 +303,6 @@ export function TeacherDashboard() {
     }
   };
 
-  // const handleUpload = async () => {
-  //   if (!selectedFile) {
-  //     setError('Please select a file first');
-  //     return;
-  //   }
-
-  //   if (!selectedSubject) {
-  //     setError('Please select all class details (Year, Branch, Section, and Subject)');
-  //     return;
-  //   }
-
-  //   setIsUploading(true);
-  //   setUploadProgress(0);
-  //   setError(null);
-  //   setSuccess(null);
-
-  //   try {
-  //     const formData = new FormData();
-  //     formData.append('file', selectedFile);
-  //     formData.append('class_subject_id', selectedSubject);
-  //     formData.append('attendance_date', new Date().toISOString().split('T')[0]);
-
-  //     const progressInterval = setInterval(() => {
-  //       setUploadProgress(prev => Math.min(prev + 10, 90));
-  //     }, 200);
-
-  //     const data = await attendanceService.markAttendance(formData);
-
-  //     clearInterval(progressInterval);
-  //     setUploadProgress(100);
-
-  //     if (data.success) {
-  //       setSuccess(`Attendance marked successfully! ${data.recognized_count} students recognized, ${data.unrecognized_count} unrecognized.`);
-
-  //       // Ensure all students have a proper status
-  //       const processedData = {
-  //         ...data,
-  //         students: data.students?.map(student => ({
-  //           ...student,
-  //           status: student.status || (student.confidence > 0.5 ? 'present' : 'absent')
-  //         })) || []
-  //       };
-
-  //       setAttendanceResults(processedData);
-  //       setShowResults(true);
-
-  //       setTimeout(() => {
-  //         handleRemoveFile();
-  //       }, 2000);
-  //     } else {
-  //       setError(data.message || 'Failed to process attendance');
-  //     }
-  //   } catch (err) {
-  //     console.error('Upload error:', err);
-  //     setError(err.response?.data?.message || 'Failed to upload photo. Please try again.');
-  //   } finally {
-  //     setIsUploading(false);
-  //   }
-  // };
-
   const handleUpload = async (forceUpload = false) => {
     if (selectedFiles.length === 0) {
       setError("Please select file(s) first");
@@ -404,9 +310,7 @@ export function TeacherDashboard() {
     }
 
     if (!selectedSubject) {
-      setError(
-        "Please select all class details (Year, Branch, Section, and Subject)"
-      );
+      setError("Please select all class details (Year, Branch, Section, and Subject)");
       return;
     }
 
@@ -442,30 +346,28 @@ export function TeacherDashboard() {
           const formData = new FormData();
           formData.append("file", file);
           formData.append("class_subject_id", selectedSubject);
-          formData.append(
-            "attendance_date",
-            new Date().toISOString().split("T")[0]
-          );
+          formData.append("attendance_date", new Date().toISOString().split("T")[0]);
           formData.append("force_process", forceUpload.toString());
 
-          setUploadProgress(((i + 1) / selectedFiles.length) * 90);
+          setUploadProgress(Math.round(((i + 1) / selectedFiles.length) * 90));
 
           try {
             const data = await attendanceService.markAttendance(formData);
 
             if (data.success) {
               // Merge results, avoid duplicates
-              data.students?.forEach((student) => {
-                if (
-                  !allResults.recognized.find(
-                    (s) => s.student_id === student.student_id
-                  )
-                ) {
-                  allResults.recognized.push(student);
-                }
-              });
+              if (Array.isArray(data.students)) {
+                data.students.forEach((student) => {
+                  if (!allResults.recognized.find((s) => s.student_id === student.student_id)) {
+                    allResults.recognized.push(student);
+                  }
+                });
+              }
 
-              allResults.unrecognized.push(...(data.unrecognized || []));
+              if (Array.isArray(data.unrecognized)) {
+                allResults.unrecognized.push(...data.unrecognized);
+              }
+              
               allResults.total_faces += data.total_faces || 0;
               allResults.images_processed++;
             }
@@ -487,113 +389,67 @@ export function TeacherDashboard() {
         );
 
         setAttendanceResults({
-          ...allResults,
-          recognized_count: recognizedCount,
-          unrecognized_count: unrecognizedCount,
           students: allResults.recognized.map((s) => ({
             ...s,
             status: s.status || "present",
           })),
+          recognized_count: recognizedCount,
+          unrecognized_count: unrecognizedCount,
+          total_processed: recognizedCount + unrecognizedCount,
         });
 
         setShowResults(true);
         setTimeout(() => handleRemoveFile(), 2000);
       } else {
-        // Single image - original code
+        // Single image upload
         const formData = new FormData();
         formData.append("file", selectedFiles[0]);
-        // ... rest of original single upload code
+        formData.append("class_subject_id", selectedSubject);
+        formData.append("attendance_date", new Date().toISOString().split("T")[0]);
+        formData.append("force_process", forceUpload.toString());
+
+        const progressInterval = setInterval(() => {
+          setUploadProgress((prev) => Math.min(prev + 10, 90));
+        }, 200);
+
+        const data = await attendanceService.markAttendance(formData);
+
+        clearInterval(progressInterval);
+        setUploadProgress(100);
+
+        if (data.success) {
+          setSuccess(
+            `Attendance marked successfully! ${data.recognized_count || 0} students recognized, ${data.unrecognized_count || 0} unrecognized.`
+          );
+
+          const processedData = {
+            students: (data.students || []).map((student) => ({
+              ...student,
+              status: student.status || (student.confidence > 0.5 ? "present" : "absent"),
+            })),
+            recognized_count: data.recognized_count || 0,
+            unrecognized_count: data.unrecognized_count || 0,
+            total_processed: (data.students || []).length,
+          };
+
+          setAttendanceResults(processedData);
+          setShowResults(true);
+
+          setTimeout(() => {
+            handleRemoveFile();
+          }, 2000);
+        } else {
+          setError(data.message || "Failed to process attendance");
+        }
       }
     } catch (err) {
       console.error("Upload error:", err);
-      setError(
-        err.response?.data?.message ||
-          "Failed to upload photo. Please try again."
-      );
+      setError(err.response?.data?.message || "Failed to upload photo. Please try again.");
     } finally {
       setIsUploading(false);
       setShowQualityWarning(false);
     }
   };
-  //   setIsUploading(true);
-  //   setUploadProgress(0);
-  //   setError(null);
-  //   setSuccess(null);
-
-  //   try {
-  //     const formData = new FormData();
-
-  //     // Add files
-  //     if (enableMultipleUpload) {
-  //       selectedFiles.forEach((file) => {
-  //         formData.append("files", file);
-  //       });
-  //     } else {
-  //       formData.append("file", selectedFiles[0]);
-  //     }
-
-  //     formData.append("class_subject_id", selectedSubject);
-  //     formData.append(
-  //       "attendance_date",
-  //       new Date().toISOString().split("T")[0]
-  //     );
-  //     formData.append("skip_quality_check", forceUpload.toString());
-
-  //     const progressInterval = setInterval(() => {
-  //       setUploadProgress((prev) => Math.min(prev + 10, 90));
-  //     }, 200);
-
-  //     // Use appropriate endpoint
-  //     const data = enableMultipleUpload
-  //       ? await attendanceService.markAttendanceBatch(formData)
-  //       : await attendanceService.markAttendance(formData);
-
-  //     clearInterval(progressInterval);
-  //     setUploadProgress(100);
-
-  //     if (data.success) {
-  //       const recognizedCount = data.recognized_count || 0;
-  //       const unrecognizedCount = data.unrecognized_count || 0;
-  //       const imagesProcessed = data.images_processed || selectedFiles.length;
-
-  //       setSuccess(
-  //         `Attendance marked successfully! ${recognizedCount} students recognized` +
-  //           (enableMultipleUpload ? ` from ${imagesProcessed} images` : "") +
-  //           `, ${unrecognizedCount} unrecognized.`
-  //       );
-
-  //       // Ensure all students have proper status
-  //       const processedData = {
-  //         ...data,
-  //         students:
-  //           data.students?.map((student) => ({
-  //             ...student,
-  //             status:
-  //               student.status ||
-  //               (student.confidence > 0.5 ? "present" : "absent"),
-  //           })) || [],
-  //       };
-
-  //       setAttendanceResults(processedData);
-  //       setShowResults(true);
-
-  //       setTimeout(() => {
-  //         handleRemoveFile();
-  //       }, 2000);
-  //     } else {
-  //       setError(data.message || "Failed to process attendance");
-  //     }
-  //   } catch (err) {
-  //     console.error("Upload error:", err);
-  //     setError(
-  //       err.response?.data?.message ||
-  //         "Failed to upload photo. Please try again."
-  //     );
-  //   } finally {
-  //     setIsUploading(false);
-  //     setShowQualityWarning(false);
-  //   }
-  // };
 
   const handleManualAttendance = async (studentId, newStatus) => {
     setManualUpdateError(null);
@@ -609,7 +465,7 @@ export function TeacherDashboard() {
 
       if (data.success) {
         setAttendanceResults((prevResults) => {
-          if (!prevResults || !prevResults.students) return prevResults;
+          if (!prevResults || !Array.isArray(prevResults.students)) return prevResults;
 
           const updatedStudents = prevResults.students.map((student) => {
             if (student.student_id === studentId) {
@@ -622,20 +478,15 @@ export function TeacherDashboard() {
             return student;
           });
 
-          const presentCount = updatedStudents.filter(
-            (s) => s.status === "present"
-          ).length;
-          const absentCount = updatedStudents.filter(
-            (s) => s.status === "absent"
-          ).length;
-          const totalProcessed = updatedStudents.length;
+          const presentCount = updatedStudents.filter((s) => s.status === "present").length;
+          const absentCount = updatedStudents.filter((s) => s.status === "absent").length;
 
           return {
             ...prevResults,
             students: updatedStudents,
             recognized_count: presentCount,
             unrecognized_count: absentCount,
-            total_processed: totalProcessed,
+            total_processed: updatedStudents.length,
           };
         });
 
@@ -647,8 +498,7 @@ export function TeacherDashboard() {
     } catch (err) {
       console.error("Manual attendance update error:", err);
       setManualUpdateError(
-        err.response?.data?.message ||
-          "Failed to update attendance. Please try again."
+        err.response?.data?.message || "Failed to update attendance. Please try again."
       );
     } finally {
       setUpdatingStudents((prev) => {
@@ -677,22 +527,20 @@ export function TeacherDashboard() {
       );
 
       if (data.success) {
-        setReportData(data.report);
+        setReportData(data.report || []);
         setShowReportModal(true);
       } else {
         setError(data.message || "Failed to fetch report");
       }
     } catch (err) {
       console.error("Report fetch error:", err);
-      setError(
-        err.response?.data?.message || "Failed to fetch attendance report"
-      );
+      setError(err.response?.data?.message || "Failed to fetch attendance report");
     } finally {
       setLoadingReport(false);
     }
   };
 
-  // Fetch attendance by date
+  // Fetch attendance by date - FIXED VERSION
   const handleFetchByDate = async () => {
     if (!selectedSubject) {
       setError("Please select a subject first");
@@ -701,36 +549,58 @@ export function TeacherDashboard() {
 
     setLoadingDateAttendance(true);
     setError(null);
+    setSuccess(null);
 
     try {
+      console.log("Fetching attendance for date:", selectedDate, "subject:", selectedSubject);
       const data = await reportService.getByDate(selectedSubject, selectedDate);
+      console.log("Received data:", data);
 
-      if (data.success) {
-        setDateAttendance(data.records);
-        setShowResults(true);
+      // Check if we have records (handle both with and without success flag)
+      const records = data.records || [];
+      const hasRecords = Array.isArray(records) && records.length > 0;
 
-        // Format data similar to automatic attendance for consistent display
+      if (hasRecords) {
+        // Format the records to match the expected structure
+        const formattedStudents = records.map((record) => ({
+          student_id: record.student_id || record.id,
+          name: record.name || "Unknown",
+          roll_number: record.roll_number || "N/A",
+          status: record.status || "absent",
+          confidence: record.confidence || 0,
+          attendance_date: record.attendance_date || selectedDate,
+          manually_modified: record.manually_modified || false,
+          image_path: record.image_path || null,
+          remarks: record.remarks || "",
+        }));
+
         const formattedData = {
-          students: data.records || [],
-          recognized_count:
-            data.records?.filter((r) => r.status === "present").length || 0,
-          unrecognized_count:
-            data.records?.filter((r) => r.status === "absent").length || 0,
-          total_processed: data.records?.length || 0,
+          students: formattedStudents,
+          recognized_count: formattedStudents.filter((s) => s.status === "present").length,
+          unrecognized_count: formattedStudents.filter((s) => s.status === "absent").length,
+          total_processed: formattedStudents.length,
         };
 
+        console.log("Formatted data:", formattedData);
+
         setAttendanceResults(formattedData);
-        setSuccess(`Loaded attendance for ${selectedDate}`);
+        setShowResults(true);
+        setSuccess(`Loaded attendance for ${selectedDate} - ${formattedStudents.length} students found`);
+        
         setTimeout(() => setSuccess(null), 3000);
       } else {
         setError(data.message || "No attendance records found for this date");
+        setShowResults(false);
+        setAttendanceResults(null);
       }
     } catch (err) {
       console.error("Date attendance fetch error:", err);
+      console.error("Error response:", err.response?.data);
       setError(
-        err.response?.data?.message ||
-          "Failed to fetch attendance for selected date"
+        err.response?.data?.message || err.message || "Failed to fetch attendance for selected date"
       );
+      setShowResults(false);
+      setAttendanceResults(null);
     } finally {
       setLoadingDateAttendance(false);
     }
@@ -738,31 +608,22 @@ export function TeacherDashboard() {
 
   // Download report as CSV
   const downloadReportCSV = () => {
-    if (!reportData) return;
+    if (!reportData || !Array.isArray(reportData)) return;
 
     const csvRows = [];
     csvRows.push(
-      [
-        "Student Name",
-        "Roll Number",
-        "Total Classes",
-        "Present",
-        "Absent",
-        "Attendance %",
-      ].join(",")
+      ["Student Name", "Roll Number", "Total Classes", "Present", "Absent", "Attendance %"].join(",")
     );
 
     reportData.forEach((student) => {
       csvRows.push(
         [
-          student.name,
-          student.roll_number,
+          `"${student.name || ''}"`,
+          student.roll_number || '',
           student.total_classes || 0,
           student.present_count || 0,
           student.absent_count || 0,
-          student.attendance_percentage
-            ? student.attendance_percentage.toFixed(2) + "%"
-            : "0%",
+          student.attendance_percentage ? student.attendance_percentage.toFixed(2) + "%" : "0%",
         ].join(",")
       );
     });
@@ -772,9 +633,7 @@ export function TeacherDashboard() {
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `attendance_report_${selectedSubject}_${
-      new Date().toISOString().split("T")[0]
-    }.csv`;
+    a.download = `attendance_report_${selectedSubject}_${new Date().toISOString().split("T")[0]}.csv`;
     a.click();
     window.URL.revokeObjectURL(url);
   };
@@ -808,8 +667,7 @@ export function TeacherDashboard() {
             <CardHeader>
               <CardTitle>Select Class Details</CardTitle>
               <CardDescription>
-                Choose the year, branch, section, and subject for attendance
-                tracking
+                Choose the year, branch, section, and subject for attendance tracking
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -817,10 +675,7 @@ export function TeacherDashboard() {
                 {/* Academic Year Dropdown */}
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Academic Year</label>
-                  <Select
-                    value={selectedAcademicYear || ""}
-                    onValueChange={setSelectedAcademicYear}
-                  >
+                  <Select value={selectedAcademicYear || ""} onValueChange={setSelectedAcademicYear}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select Academic Year" />
                     </SelectTrigger>
@@ -835,10 +690,7 @@ export function TeacherDashboard() {
                 {/* Year Dropdown */}
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Year</label>
-                  <Select
-                    value={selectedYear || ""}
-                    onValueChange={setSelectedYear}
-                  >
+                  <Select value={selectedYear || ""} onValueChange={setSelectedYear}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select Year" />
                     </SelectTrigger>
@@ -853,23 +705,15 @@ export function TeacherDashboard() {
 
                 {/* Branch Dropdown */}
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">
-                    Branch/Department
-                  </label>
-                  <Select
-                    value={selectedBranch || ""}
-                    onValueChange={setSelectedBranch}
-                  >
+                  <label className="text-sm font-medium">Branch/Department</label>
+                  <Select value={selectedBranch || ""} onValueChange={setSelectedBranch}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select Branch" />
                     </SelectTrigger>
                     <SelectContent>
                       {branches.map((branch) =>
                         branch && branch.id ? (
-                          <SelectItem
-                            key={branch.id}
-                            value={branch.id.toString()}
-                          >
+                          <SelectItem key={branch.id} value={branch.id.toString()}>
                             {branch.branch_name} ({branch.branch_code})
                           </SelectItem>
                         ) : null
@@ -881,10 +725,7 @@ export function TeacherDashboard() {
                 {/* Section Dropdown */}
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Section</label>
-                  <Select
-                    value={selectedSection || ""}
-                    onValueChange={setSelectedSection}
-                  >
+                  <Select value={selectedSection || ""} onValueChange={setSelectedSection}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select Section" />
                     </SelectTrigger>
@@ -901,21 +742,14 @@ export function TeacherDashboard() {
                   <Select
                     value={selectedSubject || ""}
                     onValueChange={setSelectedSubject}
-                    disabled={
-                      !selectedBranch ||
-                      !selectedYear ||
-                      !selectedSection ||
-                      loadingSubjects
-                    }
+                    disabled={!selectedBranch || !selectedYear || !selectedSection || loadingSubjects}
                   >
                     <SelectTrigger>
                       <SelectValue
                         placeholder={
                           loadingSubjects
                             ? "Loading subjects..."
-                            : !selectedBranch ||
-                              !selectedYear ||
-                              !selectedSection
+                            : !selectedBranch || !selectedYear || !selectedSection
                             ? "Select Year, Branch & Section first"
                             : subjects.length === 0
                             ? "No subjects available"
@@ -925,10 +759,7 @@ export function TeacherDashboard() {
                     </SelectTrigger>
                     <SelectContent>
                       {subjects.map((subject) => (
-                        <SelectItem
-                          key={subject.class_subject_id}
-                          value={subject.class_subject_id}
-                        >
+                        <SelectItem key={subject.class_subject_id} value={subject.class_subject_id}>
                           {subject.subject_code} - {subject.subject_name}
                         </SelectItem>
                       ))}
@@ -941,143 +772,19 @@ export function TeacherDashboard() {
               {isFormComplete && (
                 <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
                   <p className="text-sm text-gray-700">
-                    <span className="font-medium">Academic Year:</span>{" "}
-                    {selectedAcademicYear}
+                    <span className="font-medium">Academic Year:</span> {selectedAcademicYear}
                     <br />
                     <span className="font-medium">Selected Class:</span>{" "}
-                    {selectedYear === "1"
-                      ? "I"
-                      : selectedYear === "2"
-                      ? "II"
-                      : selectedYear === "3"
-                      ? "III"
-                      : "IV"}{" "}
+                    {selectedYear === "1" ? "I" : selectedYear === "2" ? "II" : selectedYear === "3" ? "III" : "IV"}{" "}
                     Year {getSelectedBranchName()} - Section {selectedSection}
                     <br />
-                    <span className="font-medium">Subject:</span>{" "}
-                    {getSelectedSubjectName()}
+                    <span className="font-medium">Subject:</span> {getSelectedSubjectName()}
                   </p>
                 </div>
               )}
             </CardContent>
           </Card>
 
-          {/* Photo Upload Card */}
-          {/* <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Camera className="w-5 h-5" />
-                Upload Class Photo
-              </CardTitle>
-              <CardDescription>
-                Upload a photo of your class to automatically mark attendance
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 gap-2 text-center bg-gray-50">
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  onChange={handleFileSelect}
-                  className="hidden"
-                  id="photo-upload"
-                  disabled={!isFormComplete}
-                />
-                
-                {selectedFile ? (
-                  <div className="space-y-4">
-                    {imagePreview && (
-                      <div className="relative inline-block">
-                        <img 
-                          src={imagePreview} 
-                          alt="Preview" 
-                          className="max-h-64 rounded-lg border-2 border-gray-200"
-                        />
-                        <button
-                          onClick={handleRemoveFile}
-                          className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
-                          disabled={isUploading}
-                        >
-                          <X className="w-4 h-4" />
-                        </button>
-                      </div>
-                    )}
-                    
-                    <div>
-                      <p className="font-medium text-gray-900">{selectedFile.name}</p>
-                      <p className="text-sm text-gray-500">
-                        {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
-                      </p>
-                    </div>
-                    
-                    <div className="flex gap-2 justify-center">
-                      <Button onClick={handleUpload} disabled={isUploading || !isFormComplete}>
-                        {isUploading ? 'Processing...' : 'Process Photo'}
-                      </Button>
-                      <Button 
-                        variant="outline" 
-                        onClick={handleRemoveFile}
-                        disabled={isUploading}
-                      >
-                        Remove
-                      </Button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    <Upload className="w-12 h-12 mx-auto text-gray-400" />
-                    <div>
-                      <p className="font-medium text-gray-700">Click to upload or drag and drop</p>
-                      <p className="text-sm text-gray-500">
-                        PNG, JPG or GIF (max 10MB)
-                      </p>
-                    </div>
-                    <Button asChild disabled={!isFormComplete}>
-                      <label htmlFor="photo-upload" className="cursor-pointer">
-                        Choose File
-                      </label>
-                    </Button>
-                    {!isFormComplete && (
-                      <p className="text-xs text-gray-500 mt-2">
-                        Please select class details first
-                      </p>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              {isUploading && (
-                <div className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-700">Processing image...</span>
-                    <span className="font-medium text-gray-900">{uploadProgress}%</span>
-                  </div>
-                  <Progress value={uploadProgress} />
-                </div>
-              )}
-
-              {error && (
-                <Alert variant="destructive">
-                  <AlertTriangle className="h-4 w-4" />
-                  <AlertDescription>{error}</AlertDescription>
-                </Alert>
-              )}
-
-              {success && (
-                <Alert className="bg-green-50 border-green-200">
-                  <AlertDescription className="text-green-800">{success}</AlertDescription>
-                </Alert>
-              )}
-
-              {manualUpdateError && (
-                <Alert variant="destructive">
-                  <AlertTriangle className="h-4 w-4" />
-                  <AlertDescription>{manualUpdateError}</AlertDescription>
-                </Alert>
-              )}
-            </CardContent>
-          </Card>   */}
           {/* Photo Upload Card */}
           <Card>
             <CardHeader>
@@ -1086,10 +793,9 @@ export function TeacherDashboard() {
                 Upload Class Photo{enableMultipleUpload && "s"}
               </CardTitle>
               <CardDescription>
-                Upload {enableMultipleUpload ? "multiple photos" : "a photo"} of
-                your class to automatically mark attendance
-                {enableMultipleUpload &&
-                  " (from different angles/rows for better coverage)"}
+                Upload {enableMultipleUpload ? "multiple photos" : "a photo"} of your class to automatically
+                mark attendance
+                {enableMultipleUpload && " (from different angles/rows for better coverage)"}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -1110,9 +816,7 @@ export function TeacherDashboard() {
                     {/* Image Previews Grid */}
                     <div
                       className={`grid gap-4 ${
-                        selectedFiles.length > 1
-                          ? "grid-cols-2 md:grid-cols-3"
-                          : "grid-cols-1"
+                        selectedFiles.length > 1 ? "grid-cols-2 md:grid-cols-3" : "grid-cols-1"
                       }`}
                     >
                       {imagePreviews.map((preview, index) => (
@@ -1139,9 +843,7 @@ export function TeacherDashboard() {
                                   : "bg-red-500 text-white"
                               }`}
                             >
-                              {qualityChecks[index].acceptable
-                                ? "✓ Good"
-                                : "⚠ Poor Quality"}
+                              {qualityChecks[index].acceptable ? "✓ Good" : "⚠ Poor Quality"}
                             </div>
                           )}
                         </div>
@@ -1150,17 +852,11 @@ export function TeacherDashboard() {
 
                     <div>
                       <p className="font-medium text-gray-900">
-                        {selectedFiles.length} file
-                        {selectedFiles.length > 1 ? "s" : ""} selected
+                        {selectedFiles.length} file{selectedFiles.length > 1 ? "s" : ""} selected
                       </p>
                       <p className="text-sm text-gray-500">
                         Total size:{" "}
-                        {(
-                          selectedFiles.reduce((sum, f) => sum + f.size, 0) /
-                          1024 /
-                          1024
-                        ).toFixed(2)}{" "}
-                        MB
+                        {(selectedFiles.reduce((sum, f) => sum + f.size, 0) / 1024 / 1024).toFixed(2)} MB
                       </p>
                     </div>
 
@@ -1177,14 +873,10 @@ export function TeacherDashboard() {
                             }`}
                           >
                             <div className="flex items-center justify-between mb-1">
-                              <span className="text-sm font-medium">
-                                {check.fileName}
-                              </span>
+                              <span className="text-sm font-medium">{check.fileName}</span>
                               <span
                                 className={`text-xs font-bold ${
-                                  check.acceptable
-                                    ? "text-green-700"
-                                    : "text-red-700"
+                                  check.acceptable ? "text-green-700" : "text-red-700"
                                 }`}
                               >
                                 Score: {check.quality_score}/100
@@ -1196,9 +888,7 @@ export function TeacherDashboard() {
                                   <div key={i}>
                                     ⚠ {issue.message}
                                     <br />
-                                    <span className="text-red-500">
-                                      → {issue.recommendation}
-                                    </span>
+                                    <span className="text-red-500">→ {issue.recommendation}</span>
                                   </div>
                                 ))}
                               </div>
@@ -1212,14 +902,10 @@ export function TeacherDashboard() {
                       {qualityChecks.length === 0 && (
                         <Button
                           onClick={handleCheckQuality}
-                          disabled={
-                            isCheckingQuality || isUploading || !isFormComplete
-                          }
+                          disabled={isCheckingQuality || isUploading || !isFormComplete}
                           variant="outline"
                         >
-                          {isCheckingQuality
-                            ? "Checking Quality..."
-                            : "Check Quality"}
+                          {isCheckingQuality ? "Checking Quality..." : "Check Quality"}
                         </Button>
                       )}
 
@@ -1234,27 +920,21 @@ export function TeacherDashboard() {
                         >
                           {isUploading
                             ? "Processing..."
-                            : "Process Photo" +
-                              (selectedFiles.length > 1 ? "s" : "")}
+                            : "Process Photo" + (selectedFiles.length > 1 ? "s" : "")}
                         </Button>
                       )}
 
-                      {poorQualityFiles.length > 0 &&
-                        qualityChecks.length > 0 && (
-                          <Button
-                            onClick={() => handleUpload(true)}
-                            disabled={isUploading || !isFormComplete}
-                            variant="destructive"
-                          >
-                            Upload Anyway
-                          </Button>
-                        )}
+                      {poorQualityFiles.length > 0 && qualityChecks.length > 0 && (
+                        <Button
+                          onClick={() => handleUpload(true)}
+                          disabled={isUploading || !isFormComplete}
+                          variant="destructive"
+                        >
+                          Upload Anyway
+                        </Button>
+                      )}
 
-                      <Button
-                        variant="outline"
-                        onClick={() => handleRemoveFile()}
-                        disabled={isUploading}
-                      >
+                      <Button variant="outline" onClick={() => handleRemoveFile()} disabled={isUploading}>
                         Clear All
                       </Button>
                     </div>
@@ -1263,12 +943,8 @@ export function TeacherDashboard() {
                   <div className="space-y-4">
                     <Upload className="w-12 h-12 mx-auto text-gray-400" />
                     <div>
-                      <p className="font-medium text-gray-700">
-                        Click to upload or drag and drop
-                      </p>
-                      <p className="text-sm text-gray-500">
-                        PNG, JPG or GIF (max 10MB per file)
-                      </p>
+                      <p className="font-medium text-gray-700">Click to upload or drag and drop</p>
+                      <p className="text-sm text-gray-500">PNG, JPG or GIF (max 10MB per file)</p>
                       <p className="text-xs text-blue-600 mt-2">
                         💡 Tip: Select multiple images for better coverage
                       </p>
@@ -1279,9 +955,7 @@ export function TeacherDashboard() {
                       </label>
                     </Button>
                     {!isFormComplete && (
-                      <p className="text-xs text-gray-500 mt-2">
-                        Please select class details first
-                      </p>
+                      <p className="text-xs text-gray-500 mt-2">Please select class details first</p>
                     )}
                   </div>
                 )}
@@ -1292,17 +966,14 @@ export function TeacherDashboard() {
                 <Alert variant="destructive">
                   <AlertTriangle className="h-4 w-4" />
                   <AlertDescription>
-                    <strong>
-                      {poorQualityFiles.length} image(s) have quality issues:
-                    </strong>
+                    <strong>{poorQualityFiles.length} image(s) have quality issues:</strong>
                     <ul className="list-disc ml-4 mt-2 text-sm">
                       {poorQualityFiles.map((fileName, i) => (
                         <li key={i}>{fileName}</li>
                       ))}
                     </ul>
                     <p className="mt-2 text-sm">
-                      Consider re-uploading better quality images or click
-                      "Upload Anyway" to proceed.
+                      Consider re-uploading better quality images or click "Upload Anyway" to proceed.
                     </p>
                   </AlertDescription>
                 </Alert>
@@ -1314,9 +985,7 @@ export function TeacherDashboard() {
                     <span className="text-gray-700">
                       Processing image{selectedFiles.length > 1 ? "s" : ""}...
                     </span>
-                    <span className="font-medium text-gray-900">
-                      {uploadProgress}%
-                    </span>
+                    <span className="font-medium text-gray-900">{uploadProgress}%</span>
                   </div>
                   <Progress value={uploadProgress} />
                 </div>
@@ -1331,9 +1000,7 @@ export function TeacherDashboard() {
 
               {success && (
                 <Alert className="bg-green-50 border-green-200">
-                  <AlertDescription className="text-green-800">
-                    {success}
-                  </AlertDescription>
+                  <AlertDescription className="text-green-800">{success}</AlertDescription>
                 </Alert>
               )}
 
@@ -1345,12 +1012,12 @@ export function TeacherDashboard() {
               )}
             </CardContent>
           </Card>
+
           <Alert>
             <AlertTriangle className="h-4 w-4 gap-2" />
             <AlertDescription>
-              Make sure students are clearly visible in the photo for best
-              recognition results. You can manually modify attendance after
-              processing.
+              Make sure students are clearly visible in the photo for best recognition results. You can manually
+              modify attendance after processing.
             </AlertDescription>
           </Alert>
         </div>
@@ -1366,14 +1033,10 @@ export function TeacherDashboard() {
                   <Camera className="w-5 h-5" />
                   Quick Stats
                 </CardTitle>
-                <CardDescription>
-                  Upload a class photo or view attendance to see statistics
-                </CardDescription>
+                <CardDescription>Upload a class photo or view attendance to see statistics</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="text-center py-8 text-gray-500">
-                  Statistics will appear here after processing
-                </div>
+                <div className="text-center py-8 text-gray-500">Statistics will appear here after processing</div>
               </CardContent>
             </Card>
           )}
@@ -1381,15 +1044,13 @@ export function TeacherDashboard() {
       </div>
 
       {/* View Attendance Actions Card */}
-      <Card>
+      <Card className="mt-6">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Eye className="w-5 h-5" />
             View Attendance
           </CardTitle>
-          <CardDescription>
-            View attendance records by date or generate reports
-          </CardDescription>
+          <CardDescription>View attendance records by date or generate reports</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {/* View by Date Section */}
@@ -1406,11 +1067,7 @@ export function TeacherDashboard() {
                 className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm"
                 disabled={!isFormComplete}
               />
-              <Button
-                onClick={handleFetchByDate}
-                disabled={!isFormComplete || loadingDateAttendance}
-                size="sm"
-              >
+              <Button onClick={handleFetchByDate} disabled={!isFormComplete || loadingDateAttendance} size="sm">
                 {loadingDateAttendance ? "Loading..." : "View"}
               </Button>
             </div>
@@ -1424,9 +1081,7 @@ export function TeacherDashboard() {
             </h3>
             <div className="grid grid-cols-2 gap-2">
               <div className="space-y-1">
-                <label className="text-xs text-gray-600">
-                  Start Date (Optional)
-                </label>
+                <label className="text-xs text-gray-600">Start Date (Optional)</label>
                 <input
                   type="date"
                   value={reportStartDate}
@@ -1436,9 +1091,7 @@ export function TeacherDashboard() {
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-xs text-gray-600">
-                  End Date (Optional)
-                </label>
+                <label className="text-xs text-gray-600">End Date (Optional)</label>
                 <input
                   type="date"
                   value={reportEndDate}
@@ -1448,12 +1101,7 @@ export function TeacherDashboard() {
                 />
               </div>
             </div>
-            <Button
-              onClick={handleFetchReport}
-              disabled={!isFormComplete || loadingReport}
-              className="w-full"
-              size="sm"
-            >
+            <Button onClick={handleFetchReport} disabled={!isFormComplete || loadingReport} className="w-full" size="sm">
               {loadingReport ? "Generating..." : "Generate Report"}
             </Button>
           </div>
@@ -1461,7 +1109,7 @@ export function TeacherDashboard() {
       </Card>
 
       {/* BOTTOM SECTION: Student List (Full Width) */}
-      {showResults && attendanceResults && attendanceResults.students && (
+      {showResults && attendanceResults && Array.isArray(attendanceResults.students) && (
         <div className="mt-6">
           <StudentAttendanceList
             students={attendanceResults.students}
@@ -1490,19 +1138,11 @@ export function TeacherDashboard() {
                   </CardDescription>
                 </div>
                 <div className="flex gap-2">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={downloadReportCSV}
-                  >
+                  <Button size="sm" variant="outline" onClick={downloadReportCSV}>
                     <Download className="w-4 h-4 mr-2" />
                     Download CSV
                   </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setShowReportModal(false)}
-                  >
+                  <Button size="sm" variant="outline" onClick={() => setShowReportModal(false)}>
                     <X className="w-4 h-4" />
                   </Button>
                 </div>
@@ -1513,56 +1153,31 @@ export function TeacherDashboard() {
                 <table className="w-full">
                   <thead className="bg-gray-50 border-b">
                     <tr>
-                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">
-                        #
-                      </th>
-                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">
-                        Roll No
-                      </th>
-                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">
-                        Name
-                      </th>
-                      <th className="px-4 py-3 text-center text-sm font-medium text-gray-700">
-                        Total Classes
-                      </th>
-                      <th className="px-4 py-3 text-center text-sm font-medium text-gray-700">
-                        Present
-                      </th>
-                      <th className="px-4 py-3 text-center text-sm font-medium text-gray-700">
-                        Absent
-                      </th>
-                      <th className="px-4 py-3 text-center text-sm font-medium text-gray-700">
-                        Attendance %
-                      </th>
+                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">#</th>
+                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Roll No</th>
+                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Name</th>
+                      <th className="px-4 py-3 text-center text-sm font-medium text-gray-700">Total Classes</th>
+                      <th className="px-4 py-3 text-center text-sm font-medium text-gray-700">Present</th>
+                      <th className="px-4 py-3 text-center text-sm font-medium text-gray-700">Absent</th>
+                      <th className="px-4 py-3 text-center text-sm font-medium text-gray-700">Attendance %</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y">
                     {reportData.map((student, index) => (
-                      <tr
-                        key={student.student_id || index}
-                        className="hover:bg-gray-50"
-                      >
-                        <td className="px-4 py-3 text-sm text-gray-600">
-                          {index + 1}
-                        </td>
+                      <tr key={student.student_id || index} className="hover:bg-gray-50">
+                        <td className="px-4 py-3 text-sm text-gray-600">{index + 1}</td>
                         <td className="px-4 py-3">
-                          <span className="font-mono text-sm font-medium">
-                            {student.roll_number}
-                          </span>
+                          <span className="font-mono text-sm font-medium">{student.roll_number}</span>
                         </td>
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-2">
                             <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-semibold text-sm">
                               {student.name?.charAt(0).toUpperCase() || "?"}
                             </div>
-                            <span className="font-medium text-sm">
-                              {student.name}
-                            </span>
+                            <span className="font-medium text-sm">{student.name}</span>
                           </div>
                         </td>
-                        <td className="px-4 py-3 text-center text-sm font-medium">
-                          {student.total_classes || 0}
-                        </td>
+                        <td className="px-4 py-3 text-center text-sm font-medium">{student.total_classes || 0}</td>
                         <td className="px-4 py-3 text-center">
                           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
                             {student.present_count || 0}
@@ -1581,15 +1196,12 @@ export function TeacherDashboard() {
                                   className={`h-2 rounded-full ${
                                     (student.attendance_percentage || 0) >= 75
                                       ? "bg-green-600"
-                                      : (student.attendance_percentage || 0) >=
-                                        60
+                                      : (student.attendance_percentage || 0) >= 60
                                       ? "bg-yellow-600"
                                       : "bg-red-600"
                                   }`}
                                   style={{
-                                    width: `${
-                                      student.attendance_percentage || 0
-                                    }%`,
+                                    width: `${student.attendance_percentage || 0}%`,
                                   }}
                                 ></div>
                               </div>
