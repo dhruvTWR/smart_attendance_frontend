@@ -42,4 +42,13 @@ export const studentService = {
     const response = await axios.get(`/admin/students/search?q=${query}`);
     return response.data;
   },
+
+  // Promote students to next year
+  promoteStudentsYear: async (currentYear, branchId = null) => {
+    const response = await axios.post('/admin/students/promote-year', {
+      current_year: currentYear,
+      branch_id: branchId
+    });
+    return response.data;
+  },
 };

@@ -56,6 +56,13 @@ export default function StudentManagement({ onBack }) {
   const [photoPreview, setPhotoPreview] = useState(null);
   const fileInputRef = useRef(null);
 
+  // Promotion state
+  const [showPromotionDialog, setShowPromotionDialog] = useState(false);
+  const [promotionData, setPromotionData] = useState({
+    sourceYear: '',
+    branchId: 'all'
+  });
+
   // ============================================================================
   // LIFECYCLE HOOKS
   // ============================================================================
@@ -264,6 +271,41 @@ export default function StudentManagement({ onBack }) {
     }
   };
 
+  /**
+   * Promote students to next year
+   */
+  const handlePromoteStudents = async () => {
+    if (!promotionData.sourceYear) {
+      setError('Please select a year to promote');
+      return;
+    }
+
+    if (!window.confirm(`Promote all Year ${promotionData.sourceYear} students to Year ${parseInt(promotionData.sourceYear) + 1}?`)) {
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+    setSuccess(null);
+
+    try {
+      const branchId = promotionData.branchId === 'all' ? null : promotionData.branchId;
+      const data = await studentService.promoteStudentsYear(parseInt(promotionData.sourceYear), branchId);
+      
+      if (data.success) {
+        setSuccess(`${data.affected_count} students promoted to Year ${data.promoted_to_year}!`);
+        setShowPromotionDialog(false);
+        setPromotionData({ sourceYear: '', branchId: 'all' });
+        fetchStudents();
+      }
+    } catch (err) {
+      const errorMsg = err.response?.data?.message || err.message || 'Error promoting students';
+      setError(errorMsg);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // ============================================================================
   // HELPER FUNCTIONS
   // ============================================================================
@@ -437,13 +479,22 @@ export default function StudentManagement({ onBack }) {
                   <Search className="w-5 h-5" />
                   Search and Filter Students
                 </span>
-                <Button onClick={() => { resetForm(); setShowAddForm(!showAddForm); }}>
-                  {showAddForm ? (
-                    <><X className="w-4 h-4 mr-2" /> Cancel</>
-                  ) : (
-                    <><Plus className="w-4 h-4 mr-2" /> Add Student</>
-                  )}
-                </Button>
+                <div className="flex gap-2">
+                  <Button 
+                    onClick={() => setShowPromotionDialog(true)}
+                    variant="outline"
+                    className="text-blue-600 hover:text-blue-700"
+                  >
+                    📈 Promote Students
+                  </Button>
+                  <Button onClick={() => { resetForm(); setShowAddForm(!showAddForm); }}>
+                    {showAddForm ? (
+                      <><X className="w-4 h-4 mr-2" /> Cancel</>
+                    ) : (
+                      <><Plus className="w-4 h-4 mr-2" /> Add Student</>
+                    )}
+                  </Button>
+                </div>
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -680,6 +731,7 @@ export default function StudentManagement({ onBack }) {
                   </div>
 
                   {/* Branch */}
+                  {!editingStudent && (
                   <div className="space-y-2">
                     <label className="text-sm font-medium">
                       Branch <span className="text-red-500">*</span>
@@ -687,7 +739,6 @@ export default function StudentManagement({ onBack }) {
                     <Select 
                       value={formData.branch_id} 
                       onValueChange={(value) => setFormData({ ...formData, branch_id: value })}
-                      disabled={editingStudent}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Select Branch" />
@@ -701,8 +752,10 @@ export default function StudentManagement({ onBack }) {
                       </SelectContent>
                     </Select>
                   </div>
+                  )}
 
                   {/* Year */}
+                  {!editingStudent && (
                   <div className="space-y-2">
                     <label className="text-sm font-medium">
                       Year <span className="text-red-500">*</span>
@@ -710,7 +763,6 @@ export default function StudentManagement({ onBack }) {
                     <Select 
                       value={formData.year} 
                       onValueChange={(value) => setFormData({ ...formData, year: value })}
-                      disabled={editingStudent}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Select Year" />
@@ -724,8 +776,10 @@ export default function StudentManagement({ onBack }) {
                       </SelectContent>
                     </Select>
                   </div>
+                  )}
 
                   {/* Section */}
+                  {!editingStudent && (
                   <div className="space-y-2">
                     <label className="text-sm font-medium">
                       Section <span className="text-red-500">*</span>
@@ -733,7 +787,6 @@ export default function StudentManagement({ onBack }) {
                     <Select 
                       value={formData.section} 
                       onValueChange={(value) => setFormData({ ...formData, section: value })}
-                      disabled={editingStudent}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Select Section" />
@@ -747,6 +800,7 @@ export default function StudentManagement({ onBack }) {
                       </SelectContent>
                     </Select>
                   </div>
+                  )}
 
                   {/* Photo Upload */}
                   <div className="space-y-2">
@@ -783,6 +837,21 @@ export default function StudentManagement({ onBack }) {
                           {formData.photo && (
                             <p className="text-xs text-gray-600">{formData.photo.name}</p>
                           )}
+                          {editingStudent && (
+                            <p className="text-xs text-green-600">✓ New photo selected - will update face encoding</p>
+                          )}
+                        </div>
+                      ) : editingStudent ? (
+                        <div className="space-y-2">
+                          <div className="flex justify-center py-8">
+                            <User className="w-12 h-12 text-gray-400" />
+                          </div>
+                          <p className="text-xs text-gray-600">Current photo stored in database</p>
+                          <Button type="button" variant="outline" size="sm" asChild>
+                            <label htmlFor="student-photo" className="cursor-pointer">
+                              Replace Photo
+                            </label>
+                          </Button>
                         </div>
                       ) : (
                         <div className="space-y-2">
@@ -839,6 +908,89 @@ export default function StudentManagement({ onBack }) {
           </Alert>
         </div>
       </div>
+
+      {/* Promotion Dialog */}
+      {showPromotionDialog && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <Card className="w-full max-w-md">
+            <CardHeader>
+              <CardTitle>Promote Students to Next Year</CardTitle>
+              <CardDescription>Select the year to promote from</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">
+                  Current Year (to promote from) <span className="text-red-500">*</span>
+                </label>
+                <Select 
+                  value={promotionData.sourceYear} 
+                  onValueChange={(value) => setPromotionData({ ...promotionData, sourceYear: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select year to promote from" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {years.map((year) => (
+                      <SelectItem key={year} value={year.toString()}>
+                        Year {year} → Year {year + 1}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Branch (Optional)</label>
+                <Select 
+                  value={promotionData.branchId} 
+                  onValueChange={(value) => setPromotionData({ ...promotionData, branchId: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select branch" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Branches</SelectItem>
+                    {branches.map((branch) => (
+                      <SelectItem key={branch.id} value={branch.id.toString()}>
+                        {branch.name || branch.branch_code}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <Alert className="bg-blue-50 border-blue-200">
+                <AlertTriangle className="h-4 w-4 text-blue-600" />
+                <AlertDescription className="text-blue-800 text-sm">
+                  {promotionData.sourceYear ? (
+                    <>Promotes all Year {promotionData.sourceYear} students to Year {parseInt(promotionData.sourceYear) + 1}</>
+                  ) : (
+                    <>Select a year to see promotion details</>
+                  )}
+                </AlertDescription>
+              </Alert>
+            </CardContent>
+            <div className="flex gap-2 p-6 pt-0">
+              <Button 
+                onClick={handlePromoteStudents} 
+                disabled={loading || !promotionData.sourceYear}
+                className="flex-1"
+              >
+                {loading ? 'Promoting...' : '📈 Promote Students'}
+              </Button>
+              <Button 
+                onClick={() => {
+                  setShowPromotionDialog(false);
+                  setPromotionData({ sourceYear: '', branchId: 'all' });
+                }}
+                variant="outline"
+              >
+                Cancel
+              </Button>
+            </div>
+          </Card>
+        </div>
+      )}
     </div>
   );
 }

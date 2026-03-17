@@ -1,5 +1,5 @@
 // src/components/teacher_components/AttendanceStats.jsx
-import { AlertTriangle, CheckCircle, Users, TrendingUp } from 'lucide-react';
+import { AlertTriangle, CheckCircle, Users, TrendingUp, Users2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
@@ -10,16 +10,20 @@ export function AttendanceStats({ attendanceData }) {
     recognized_count = 0,
     unrecognized_count = 0,
     total_processed = 0,
-    total_faces = 0
+    total_faces = 0,
+    class_strength = 0
   } = attendanceData;
 
   // Use total_processed if available, otherwise fall back to total_faces
-  const totalCount = total_processed || total_faces || (recognized_count + unrecognized_count);
+  const totalCount =  (recognized_count + unrecognized_count);
 
   // Calculate attendance rate
   const attendanceRate = totalCount > 0 
     ? ((recognized_count / totalCount) * 100).toFixed(1)
     : 0;
+
+  // Calculate absence count based on class strength
+  const absenceCount = class_strength > 0 ? (class_strength - recognized_count) : unrecognized_count;
 
   return (
     <Card>
@@ -30,13 +34,24 @@ export function AttendanceStats({ attendanceData }) {
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
+        {/* Class Strength */}
+        <div className="flex items-center justify-between p-3 bg-indigo-50 rounded-lg border border-indigo-200">
+          <div className="flex items-center gap-3">
+            <Users2 className="w-5 h-5 text-indigo-600" />
+            <span className="text-sm font-medium text-indigo-900">Class Strength</span>
+          </div>
+          <Badge className="bg-indigo-600 hover:bg-indigo-700 text-black">
+            {class_strength}
+          </Badge>
+        </div>
+
         {/* Present Students */}
         <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg border border-green-200">
           <div className="flex items-center gap-3">
             <CheckCircle className="w-5 h-5 text-green-600" />
             <span className="text-sm font-medium text-green-900">Present Students</span>
           </div>
-          <Badge className="bg-green-600 hover:bg-green-700 text-white">
+          <Badge className="bg-green-600 hover:bg-green-700 text-black">
             {recognized_count}
           </Badge>
         </div>
@@ -47,8 +62,8 @@ export function AttendanceStats({ attendanceData }) {
             <AlertTriangle className="w-5 h-5 text-red-600" />
             <span className="text-sm font-medium text-red-900">Absent</span>
           </div>
-          <Badge className="bg-red-600 hover:bg-red-700 text-white">
-            {unrecognized_count}
+          <Badge className="bg-red-600 hover:bg-red-700 text-black">
+            {absenceCount}
           </Badge>
         </div>
 
@@ -58,7 +73,7 @@ export function AttendanceStats({ attendanceData }) {
             <Users className="w-5 h-5 text-blue-600" />
             <span className="text-sm font-medium text-blue-900">Total Students</span>
           </div>
-          <Badge className="bg-blue-600 hover:bg-blue-700 text-white">
+          <Badge className="bg-blue-600 hover:bg-blue-700 text-black">
             {totalCount}
           </Badge>
         </div>
@@ -69,7 +84,7 @@ export function AttendanceStats({ attendanceData }) {
             <TrendingUp className="w-5 h-5 text-purple-600" />
             <span className="text-sm font-medium text-purple-900">Attendance Rate</span>
           </div>
-          <Badge className="bg-purple-600 hover:bg-purple-700 text-white">
+          <Badge className="bg-purple-600 hover:bg-purple-700 text-black">
             {attendanceRate}%
           </Badge>
         </div>

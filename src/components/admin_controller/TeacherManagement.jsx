@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { AlertTriangle, ArrowLeft, Edit, Plus, Search, Trash2, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { teacherService } from '../../api/admin/teacherService';
+import { teacherService } from '@/api';
 
 export function TeacherManagement({ onBack }) {
   const [teachers, setTeachers] = useState([]);
@@ -101,10 +101,14 @@ export function TeacherManagement({ onBack }) {
     }
   };
 
-  // 4. DELETE TEACHER - Maps to: DELETE /api/admin/teachers/:id (if exists in backend)
+  // 4. DELETE TEACHER - Maps to: DELETE /api/admin/teachers/:id
   const handleDeleteTeacher = async (teacherId) => {
     if (!confirm('Delete this teacher?')) return;
+    
     setLoading(true);
+    setError(null);
+    setSuccess(null);
+    
     try {
       await teacherService.deleteTeacher(teacherId);
       setSuccess('Teacher deleted successfully!');

@@ -1,3 +1,9 @@
+/*
+ ⚠️  CURRENTLY UNUSED COMPONENT
+ This component is not actively imported in the project.
+ Uncomment to use, or remove if no longer needed.
+ See UI/INDEX.md for more details.
+
 "use client";
 
 import * as CollapsiblePrimitive from "@radix-ui/react-collapsible@1.1.3";
@@ -31,3 +37,5 @@ function CollapsibleContent({
 }
 
 export { Collapsible, CollapsibleTrigger, CollapsibleContent };
+
+*/

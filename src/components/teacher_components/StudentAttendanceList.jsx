@@ -84,9 +84,9 @@ export function StudentAttendanceList({
         </div>
       </CardHeader>
       <CardContent>
-        <div className="border rounded-lg overflow-hidden">
+        <div className="border rounded-lg overflow-y-auto max-h-[500px]">
           <Table>
-            <TableHeader>
+            <TableHeader className="sticky top-0 bg-muted/50 z-10">
               <TableRow className="bg-muted/50">
                 <TableHead className="w-12">#</TableHead>
                 <TableHead>Roll Number</TableHead>

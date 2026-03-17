@@ -234,9 +234,9 @@ export function AttendanceReport() {
           </div>
 
           {/* Data Table */}
-          <div className="border rounded-md">
+          <div className="border rounded-md overflow-y-auto max-h-[500px]">
             <Table>
-              <TableHeader>
+              <TableHeader className="sticky top-0 bg-gray-50 z-10">
                 <TableRow>
                   <TableHead>Date</TableHead>
                   <TableHead>Class</TableHead>

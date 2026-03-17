@@ -1,3 +1,9 @@
+/*
+ ⚠️  CURRENTLY UNUSED COMPONENT
+ This component is not actively imported in the project.
+ Uncomment to use, or remove if no longer needed.
+ See UI/INDEX.md for more details.
+
 import * as React from "react";
 import * as NavigationMenuPrimitive from "@radix-ui/react-navigation-menu@1.2.5";
 import { cva } from "class-variance-authority@0.7.1";
@@ -166,3 +172,5 @@ export {
   NavigationMenuViewport,
   navigationMenuTriggerStyle,
 };
+
+*/

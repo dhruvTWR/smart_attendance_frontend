@@ -101,6 +101,18 @@ export function TeacherDashboard() {
     }
   }, [selectedBranch, selectedYear, selectedSection, selectedAcademicYear]);
 
+  // Prevent background scroll when modal is open
+  useEffect(() => {
+    if (showReportModal) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'auto';
+    }
+    return () => {
+      document.body.style.overflow = 'auto';
+    };
+  }, [showReportModal]);
+
   const fetchBranches = async () => {
     try {
       const data = await dropdownService.getBranches();
@@ -552,9 +564,7 @@ export function TeacherDashboard() {
     setSuccess(null);
 
     try {
-      console.log("Fetching attendance for date:", selectedDate, "subject:", selectedSubject);
       const data = await reportService.getByDate(selectedSubject, selectedDate);
-      console.log("Received data:", data);
 
       // Check if we have records (handle both with and without success flag)
       const records = data.records || [];
@@ -580,8 +590,6 @@ export function TeacherDashboard() {
           unrecognized_count: formattedStudents.filter((s) => s.status === "absent").length,
           total_processed: formattedStudents.length,
         };
-
-        console.log("Formatted data:", formattedData);
 
         setAttendanceResults(formattedData);
         setShowResults(true);
@@ -616,14 +624,16 @@ export function TeacherDashboard() {
     );
 
     reportData.forEach((student) => {
+      const absentCount = (student.total_classes || 0) - (student.present_count || 0);
+      const attendancePercent = student.attendance_percentage ? parseFloat(student.attendance_percentage).toFixed(2) : "0.00";
       csvRows.push(
         [
           `"${student.name || ''}"`,
           student.roll_number || '',
           student.total_classes || 0,
           student.present_count || 0,
-          student.absent_count || 0,
-          student.attendance_percentage ? student.attendance_percentage.toFixed(2) + "%" : "0%",
+          absentCount,
+          attendancePercent + "%",
         ].join(",")
       );
     });
@@ -1081,7 +1091,7 @@ export function TeacherDashboard() {
             </h3>
             <div className="grid grid-cols-2 gap-2">
               <div className="space-y-1">
-                <label className="text-xs text-gray-600">Start Date (Optional)</label>
+                <label className="text-xs text-gray-600">Start Date </label>
                 <input
                   type="date"
                   value={reportStartDate}
@@ -1091,7 +1101,7 @@ export function TeacherDashboard() {
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-xs text-gray-600">End Date (Optional)</label>
+                <label className="text-xs text-gray-600">End Date </label>
                 <input
                   type="date"
                   value={reportEndDate}
@@ -1122,117 +1132,120 @@ export function TeacherDashboard() {
 
       {/* Report Modal */}
       {showReportModal && reportData && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <Card className="w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
-            <CardHeader className="border-b">
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="flex items-center gap-2">
-                    <FileText className="w-5 h-5" />
-                    Attendance Report
-                  </CardTitle>
-                  <CardDescription>
-                    {getSelectedSubjectName()}
-                    {reportStartDate && ` from ${reportStartDate}`}
-                    {reportEndDate && ` to ${reportEndDate}`}
-                  </CardDescription>
-                </div>
-                <div className="flex gap-2">
-                  <Button size="sm" variant="outline" onClick={downloadReportCSV}>
-                    <Download className="w-4 h-4 mr-2" />
-                    Download CSV
-                  </Button>
-                  <Button size="sm" variant="outline" onClick={() => setShowReportModal(false)}>
-                    <X className="w-4 h-4" />
-                  </Button>
-                </div>
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-[100] flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-5xl flex flex-col" style={{ height: '90vh', maxHeight: '90vh', backgroundColor: '#ffffff' }}>
+            {/* Header */}
+            <div className="border-b px-6 py-4 flex items-center justify-between flex-shrink-0 bg-white" style={{ backgroundColor: '#ffffff' }}>
+              <div>
+                <h2 className="text-lg font-semibold flex items-center gap-2">
+                  <FileText className="w-5 h-5" />
+                  Attendance Report
+                </h2>
+                <p className="text-sm text-gray-600 mt-1">
+                  {getSelectedSubjectName()}
+                  {reportStartDate && ` from ${reportStartDate}`}
+                  {reportEndDate && ` to ${reportEndDate}`}
+                </p>
               </div>
-            </CardHeader>
-            <CardContent className="overflow-y-auto flex-1 p-6">
-              <div className="border rounded-lg overflow-hidden">
-                <table className="w-full">
-                  <thead className="bg-gray-50 border-b">
-                    <tr>
-                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">#</th>
-                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Roll No</th>
-                      <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Name</th>
-                      <th className="px-4 py-3 text-center text-sm font-medium text-gray-700">Total Classes</th>
-                      <th className="px-4 py-3 text-center text-sm font-medium text-gray-700">Present</th>
-                      <th className="px-4 py-3 text-center text-sm font-medium text-gray-700">Absent</th>
-                      <th className="px-4 py-3 text-center text-sm font-medium text-gray-700">Attendance %</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y">
-                    {reportData.map((student, index) => (
-                      <tr key={student.student_id || index} className="hover:bg-gray-50">
-                        <td className="px-4 py-3 text-sm text-gray-600">{index + 1}</td>
-                        <td className="px-4 py-3">
-                          <span className="font-mono text-sm font-medium">{student.roll_number}</span>
-                        </td>
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-2">
-                            <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-semibold text-sm">
-                              {student.name?.charAt(0).toUpperCase() || "?"}
-                            </div>
-                            <span className="font-medium text-sm">{student.name}</span>
-                          </div>
-                        </td>
-                        <td className="px-4 py-3 text-center text-sm font-medium">{student.total_classes || 0}</td>
-                        <td className="px-4 py-3 text-center">
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                            {student.present_count || 0}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 text-center">
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
-                            {student.absent_count || 0}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 text-center">
-                          <div className="flex items-center justify-center gap-2">
-                            <div className="flex-1 max-w-[100px]">
-                              <div className="w-full bg-gray-200 rounded-full h-2">
-                                <div
-                                  className={`h-2 rounded-full ${
-                                    (student.attendance_percentage || 0) >= 75
-                                      ? "bg-green-600"
-                                      : (student.attendance_percentage || 0) >= 60
-                                      ? "bg-yellow-600"
-                                      : "bg-red-600"
-                                  }`}
-                                  style={{
-                                    width: `${student.attendance_percentage || 0}%`,
-                                  }}
-                                ></div>
-                              </div>
-                            </div>
-                            <span
-                              className={`text-sm font-semibold ${
-                                (student.attendance_percentage || 0) >= 75
-                                  ? "text-green-700"
-                                  : (student.attendance_percentage || 0) >= 60
-                                  ? "text-yellow-700"
-                                  : "text-red-700"
-                              }`}
-                            >
-                              {student.attendance_percentage?.toFixed(1) || 0}%
-                            </span>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div className="flex gap-2">
+                <Button size="sm" variant="outline" onClick={downloadReportCSV}>
+                  <Download className="w-4 h-4 mr-2" />
+                  Download CSV
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => setShowReportModal(false)}>
+                  <X className="w-4 h-4" />
+                </Button>
               </div>
+            </div>
 
-              {reportData.length === 0 && (
+            {/* Scrollable Content */}
+            <div className="flex-1 overflow-y-auto" style={{ flex: '1 1 auto', overflowY: 'auto', minHeight: 0, backgroundColor: '#ffffff' }}>
+              {reportData.length > 0 ? (
+                <div className="p-6" style={{ backgroundColor: '#ffffff' }}>
+                  <div className="border rounded-lg overflow-x-auto" style={{ backgroundColor: '#ffffff' }}>
+                    <table className="w-full" style={{ backgroundColor: '#ffffff' }}>
+                      <thead className="bg-gray-50 border-b sticky top-0">
+                        <tr>
+                          <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">#</th>
+                          <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Roll No</th>
+                          <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Name</th>
+                          <th className="px-4 py-3 text-center text-sm font-medium text-gray-700">Total Classes</th>
+                          <th className="px-4 py-3 text-center text-sm font-medium text-gray-700">Present</th>
+                          <th className="px-4 py-3 text-center text-sm font-medium text-gray-700">Absent</th>
+                          <th className="px-4 py-3 text-center text-sm font-medium text-gray-700">Attendance %</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y" style={{ backgroundColor: '#ffffff' }}>
+                        {reportData.map((student, index) => (
+                          <tr key={`${student.student_id}-${student.roll_number}-${index}`} className="hover:bg-gray-50" style={{ backgroundColor: '#ffffff' }}>
+                            <td className="px-4 py-3 text-sm text-gray-600">{index + 1}</td>
+                            <td className="px-4 py-3">
+                              <span className="font-mono text-sm font-medium">{student.roll_number}</span>
+                            </td>
+                            <td className="px-4 py-3">
+                              <div className="flex items-center gap-2">
+                                <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-semibold text-sm">
+                                  {student.name?.charAt(0).toUpperCase() || "?"}
+                                </div>
+                                <span className="font-medium text-sm">{student.name}</span>
+                              </div>
+                            </td>
+                            <td className="px-4 py-3 text-center text-sm font-medium">{student.total_classes || 0}</td>
+                            <td className="px-4 py-3 text-center">
+                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                {student.present_count || 0}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 text-center">
+                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                                {(student.total_classes || 0) - (student.present_count || 0)}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 text-center">
+                              <div className="flex items-center justify-center gap-2">
+                                <div className="flex-1 max-w-[100px]">
+                                  <div className="w-full bg-gray-200 rounded-full h-2">
+                                    <div
+                                      className={`h-2 rounded-full ${
+                                        (parseFloat(student.attendance_percentage) || 0) >= 75
+                                          ? "bg-green-600"
+                                          : (parseFloat(student.attendance_percentage) || 0) >= 60
+                                          ? "bg-yellow-600"
+                                          : "bg-red-600"
+                                      }`}
+                                      style={{
+                                        width: `${parseFloat(student.attendance_percentage) || 0}%`,
+                                      }}
+                                    ></div>
+                                  </div>
+                                </div>
+                                <span
+                                  className={`text-sm font-semibold ${
+                                    (parseFloat(student.attendance_percentage) || 0) >= 75
+                                      ? "text-green-700"
+                                      : (parseFloat(student.attendance_percentage) || 0) >= 60
+                                      ? "text-yellow-700"
+                                      : "text-red-700"
+                                  }`}
+                                >
+                                  {student.attendance_percentage ? parseFloat(student.attendance_percentage).toFixed(1) : "0.0"}%
+                                </span>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              ) : (
                 <div className="text-center py-12 text-gray-500">
                   <FileText className="w-12 h-12 mx-auto mb-3 text-gray-400" />
                   <p>No attendance records found for the selected period</p>
                 </div>
               )}
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         </div>
       )}
     </div>

@@ -18,12 +18,18 @@ export const teacherService = {
   },
 
   // Update teacher
-   // Update teacher
   updateTeacher: async (teacherId, { username, password }) => {
     const payload = { username };
     if (password) payload.password = password; // Only send password if provided
 
     const response = await axios.put(`/admin/teachers/${teacherId}`, payload);
     return response.data;
-  }};
+  },
+
+  // Delete teacher
+  deleteTeacher: async (teacherId) => {
+    const response = await axios.delete(`/admin/teachers/${teacherId}`);
+    return response.data;
+  }
+};
 

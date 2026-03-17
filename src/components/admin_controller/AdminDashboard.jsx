@@ -6,16 +6,59 @@ import {
   UserCheck,
   Users
 } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '../ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { ClassSubjectAssignment } from './ClassSubjectAssignment.jsx';
 import StudentManagement from './StudentManagement.jsx';
 import { SubjectManagement } from './SubjectManagement.jsx';
 import { TeacherManagement } from './TeacherManagement.jsx';
+import { studentService, teacherService, subjectService, classSubjectService } from '@/api';
 
 export function AdminDashboard({ user, onLogout }) {
   const [activeFeature, setActiveFeature] = useState(null);
+  const [stats, setStats] = useState({
+    totalStudents: 0,
+    activeTeachers: 0,
+    totalSubjects: 0,
+    classAssignments: 0,
+    loading: true,
+    error: null
+  });
+
+  useEffect(() => {
+    fetchStats();
+  }, []);
+
+  const fetchStats = async () => {
+    try {
+      setStats(prev => ({ ...prev, loading: true, error: null }));
+      
+      // Fetch all statistics in parallel
+      const [studentsData, teachersData, subjectsData, classSubjectsData] = await Promise.all([
+        studentService.getStudents().catch(() => ({ students: [] })),
+        teacherService.getTeachers().catch(() => ({ teachers: [] })),
+        subjectService.getSubjects().catch(() => ({ subjects: [] })),
+        classSubjectService.getMappings().catch(() => ({ mappings: [] }))
+      ]);
+
+      setStats({
+        totalStudents: studentsData.students?.length || 0,
+        activeTeachers: teachersData.teachers?.length || 0,
+        totalSubjects: subjectsData.subjects?.length || 0,
+        classAssignments: classSubjectsData.mappings?.length || 0,
+        loading: false,
+        error: null
+      });
+    } catch (err) {
+      console.error('Error fetching stats:', err);
+      setStats(prev => ({
+        ...prev,
+        loading: false,
+        error: 'Unable to load statistics'
+      }));
+    }
+  };
 
   const features = [
     {
@@ -160,24 +203,30 @@ export function AdminDashboard({ user, onLogout }) {
             <h4 className="text-xl font-semibold text-foreground mb-6 text-center">
               System Overview
             </h4>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-              <div className="text-center">
-                <div className="text-3xl font-bold text-green-600 mb-2">0</div>
-                <div className="text-sm text-muted-foreground">Total Students</div>
+            {stats.loading ? (
+              <div className="text-center text-muted-foreground py-8">Loading statistics...</div>
+            ) : stats.error ? (
+              <div className="text-center text-red-600 py-8">{stats.error}</div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                <div className="text-center">
+                  <div className="text-3xl font-bold text-green-600 mb-2">{stats.totalStudents}</div>
+                  <div className="text-sm text-muted-foreground">Total Students</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-3xl font-bold text-blue-600 mb-2">{stats.activeTeachers}</div>
+                  <div className="text-sm text-muted-foreground">Active Teachers</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-3xl font-bold text-purple-600 mb-2">{stats.totalSubjects}</div>
+                  <div className="text-sm text-muted-foreground">Total Subjects</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-3xl font-bold text-orange-600 mb-2">{stats.classAssignments}</div>
+                  <div className="text-sm text-muted-foreground">Class Assignments</div>
+                </div>
               </div>
-              <div className="text-center">
-                <div className="text-3xl font-bold text-blue-600 mb-2">0</div>
-                <div className="text-sm text-muted-foreground">Active Teachers</div>
-              </div>
-              <div className="text-center">
-                <div className="text-3xl font-bold text-purple-600 mb-2">0</div>
-                <div className="text-sm text-muted-foreground">Total Subjects</div>
-              </div>
-              <div className="text-center">
-                <div className="text-3xl font-bold text-orange-600 mb-2">0</div>
-                <div className="text-sm text-muted-foreground">Class Assignments</div>
-              </div>
-            </div>
+            )}
           </div>
         </div>
       </div>
